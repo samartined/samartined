@@ -1,24 +1,19 @@
-# Hi, I'm Edgar 👋
+<p align="center">
+  <img src="./cyberpunk-banner.svg" width="100%" alt="Edgar, DevOps / SRE Consultant. Builds and runs cloud infrastructure on Google Cloud. Automates everything that can be automated, and keeps the rest alive when it breaks at 3 a.m. Focus areas: Google Cloud, Terraform, CI/CD pipelines and self-hosting. Member of GDG Alicante.">
+</p>
 
-<img align="right" width="300" src="./WhatsApp%20Image%202026-10-28%20at%2015.37.21.jpeg" alt="Pixel art retro computer loading on a desk with a cup of coffee">
+<p align="center">
+  <img src="./tech-stack.svg" width="100%" alt="Tech stack: Google Cloud, Terraform, Docker, GitHub Actions, Python, Bash, Linux and Git.">
+</p>
 
-**DevOps / SRE Consultant**<br>
-I design, automate and keep cloud infrastructure running on Google Cloud, so teams can ship without worrying about what's underneath.
+<p align="center">
+  <a href="https://github.com/samartined/motion-gdrive-sync">
+    <img src="./featured-project.svg" width="100%" alt="Featured project: motion-gdrive-sync, a Python service that uploads motion detection captures to Google Drive, with automatic retries and an offline queue.">
+  </a>
+</p>
 
-### What I do
-- ☁️ Cloud infrastructure on GCP: IAM, networking, Cloud Run, Vertex AI and Gemini API
-- 🏗️ Infrastructure as Code with Terraform
-- 🔁 CI/CD pipelines and automation
-- 🏠 Homelab, self-hosting and security tinkering
-- 🤝 Member of **GDG Alicante**
-
-### Tech stack
-<img src="https://skillicons.dev/icons?i=gcp,terraform,docker,githubactions,python,bash,linux,git" height="48" alt="Google Cloud, Terraform, Docker, GitHub Actions, Python, Bash, Linux and Git">
-
-<br clear="right">
-
-### Featured project
-📹 **[motion-gdrive-sync](https://github.com/samartined/motion-gdrive-sync)** – a Python service that uploads motion detection captures to Google Drive, with retries and an offline queue.
-
-### Let's connect
-<a href="https://www.linkedin.com/in/samartined/"><img src="https://skillicons.dev/icons?i=linkedin" height="40" alt="LinkedIn"></a>
+<p align="center">
+  <a href="https://www.linkedin.com/in/samartined/">
+    <img src="./contact.svg" width="100%" alt="Contact me on LinkedIn: linkedin.com/in/samartined">
+  </a>
+</p>
