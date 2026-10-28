@@ -1,87 +1,76 @@
-"""Genera activity.svg: gráfico de contribuciones con el estilo del perfil."""
-import re, datetime, urllib.request, os
+"""Genera activity.svg: repositorios marcados con el topic 'showcase', ordenados por último push."""
+import datetime, json, os, urllib.request
 from fontTools.ttLib import TTFont
 from fontTools.pens.svgPathPen import SVGPathPen
 from fontTools.pens.transformPen import TransformPen
 
-USER = os.environ.get("GH_USER", "samartined")
+USER, TOPIC, ROWS = os.environ.get("GH_USER", "samartined"), "showcase", 4
 FONTS = os.environ.get("FONTS_DIR", "fonts")
-BG, RED, LINE, DIM, CY = "#0D1117", "#FF5C57", "#C8383E", "#4A161D", "#5EF6FF"
-LEVELS = ["#1A1016", "#5A1A22", "#9A2A33", "#D9413F", "#FF5C57"]
+BG, RED, LINE, DIM, CY, SLOT = "#0D1117", "#FF5C57", "#C8383E", "#4A161D", "#5EF6FF", "#160D13"
+B, S, MD, MO = "Rajdhani-Bold.ttf", "Rajdhani-SemiBold.ttf", "Rajdhani-Medium.ttf", "ShareTechMono-Regular.ttf"
 _f = {}
 
-def text(s, font, size, x, y, fill, op=1, tr=0):
-    f = _f.setdefault(font, TTFont(os.path.join(FONTS, font)))
-    gs, cmap, s_ = f.getGlyphSet(), f.getBestCmap(), size / f["head"].unitsPerEm
+def font(name):
+    return _f.setdefault(name, TTFont(os.path.join(FONTS, name)))
+
+def width(s, name, size, tr=0):
+    f = font(name); gs, cmap = f.getGlyphSet(), f.getBestCmap()
+    return sum(gs[cmap[ord(c)]].width * size / f["head"].unitsPerEm + tr for c in s if ord(c) in cmap)
+
+def text(s, name, size, x, y, fill, op=1, tr=0):
+    f = font(name); gs, cmap, k = f.getGlyphSet(), f.getBestCmap(), size / f["head"].unitsPerEm
     pen, cx = SVGPathPen(gs, ntos=lambda v: ("%.1f" % v).rstrip("0").rstrip(".")), 0
-    for ch in s:
-        g = cmap.get(ord(ch))
-        if g is None: continue
-        gs[g].draw(TransformPen(pen, (s_, 0, 0, -s_, x + cx, y)))
-        cx += gs[g].width * s_ + tr
-    return f'<path d="{pen.getCommands()}" fill="{fill}" opacity="{op}"/>', cx
+    for c in s:
+        if ord(c) not in cmap: continue
+        g = gs[cmap[ord(c)]]; g.draw(TransformPen(pen, (k, 0, 0, -k, x + cx, y))); cx += g.width * k + tr
+    return f'<path d="{pen.getCommands()}" fill="{fill}" opacity="{op}"/>'
+
+def fit(s, name, size, maxw):
+    s = " ".join(s.split())
+    if width(s, name, size) <= maxw: return s
+    while s and width(s + "...", name, size) > maxw: s = s[:-1]
+    return s.rstrip(" ,.;:") + "..."
+
+def ago(ts, now):
+    d = (now - datetime.datetime.fromisoformat(ts.replace("Z", "+00:00"))).days
+    if d < 1: return "TODAY"
+    if d < 2: return "1 DAY AGO"
+    if d < 14: return f"{d} DAYS AGO"
+    if d < 45: return f"{d // 7} WEEKS AGO"
+    if d < 365: return f"{d // 30} MONTH{'S' if d >= 60 else ''} AGO"
+    return f"{d // 365} YEAR{'S' if d >= 730 else ''} AGO"
 
 def fetch():
-    req = urllib.request.Request(f"https://github.com/users/{USER}/contributions", headers={"User-Agent": "Mozilla/5.0"})
-    h = urllib.request.urlopen(req, timeout=30).read().decode()
-    cells = re.findall(r'data-date="([\d-]+)" id="(contribution-day-component-(\d+)-(\d+))" data-level="(\d)"', h)
-    tips = dict(re.findall(r'for="(contribution-day-component-\d+-\d+)"[^>]*>([^<]*)</tool-tip>', h))
-    days = []
-    for date, cid, row, col, lvl in cells:
-        m = re.match(r"([\d,]+) contribution", tips.get(cid, ""))
-        days.append((datetime.date.fromisoformat(date), int(row), int(col), int(lvl), int(m.group(1).replace(",", "")) if m else 0))
-    return sorted(days)
+    req = urllib.request.Request(f"https://api.github.com/users/{USER}/repos?per_page=100&sort=pushed&type=owner",
+                                 headers={"Accept": "application/vnd.github+json", "User-Agent": USER})
+    if os.environ.get("GH_TOKEN"): req.add_header("Authorization", "Bearer " + os.environ["GH_TOKEN"])
+    repos = json.load(urllib.request.urlopen(req, timeout=30))
+    repos = [r for r in repos if TOPIC in (r.get("topics") or []) and not r["fork"] and not r["archived"]]
+    return sorted(repos, key=lambda r: r["pushed_at"], reverse=True)[:ROWS]
 
-def streaks(days):
-    cur = best = run = 0
-    for d in days:
-        run = run + 1 if d[4] else 0
-        best = max(best, run)
-    for d in reversed(days):
-        if d[0] == days[-1][0] and d[4] == 0: continue  # hoy aún sin contribuir no rompe la racha
-        if d[4]: cur += 1
-        else: break
-    return cur, best
-
-def build(days):
-    W, H = 1200, 262
-    out = []; a = out.append
-    t = lambda *k, **kw: (a(text(*k, **kw)[0]), text(*k, **kw)[1])[1]
-    ty = 6
-    a(f'<path d="M22 {ty+26}H1178" stroke="{LINE}" stroke-width="1.5"/>')
-    a(f'<path d="M40 {ty+26}V{ty}H170l12 12V{ty+26}" fill="#0E2A30" fill-opacity=".6" stroke="{CY}" stroke-width="1.5"/>')
-    t("ACTIVITY", "Rajdhani-SemiBold.ttf", 20, 56, ty + 20, CY, tr=1.5)
-    t("LAST 12 MONTHS", "ShareTechMono-Regular.ttf", 15, 1040, ty + 19, RED, .8)
-    cs, gap, gx, gy = 16, 4, 52, 70
-    ncol = max(d[2] for d in days) + 1
-    gx = (W - (ncol * (cs + gap) - gap)) / 2
-    seen = set()
-    for date, row, col, lvl, n in days:
-        x, y = gx + col * (cs + gap), gy + row * (cs + gap)
-        stroke = f' stroke="{LINE}" stroke-opacity=".35"' if lvl == 0 else ""
-        a(f'<rect x="{x:.1f}" y="{y}" width="{cs}" height="{cs}" fill="{LEVELS[lvl]}"{stroke}/>')
-        if row == 0 and date.day <= 7 and date.month not in seen and col < ncol - 2:
-            seen.add(date.month); t(date.strftime("%b").upper(), "ShareTechMono-Regular.ttf", 13, x, gy - 10, RED, .7)
-    last = days[-1]
-    a(f'<rect x="{gx + last[2]*(cs+gap) - 2:.1f}" y="{gy + last[1]*(cs+gap) - 2}" width="{cs+4}" height="{cs+4}" fill="none" stroke="{CY}" stroke-width="1.5"/>')
-    a(f'<rect class="sweep" x="{gx - 2:.1f}" y="{gy - 4}" width="{cs + 4}" height="{7*(cs+gap)+4}" fill="{CY}" opacity=".18"/>')
-    total = sum(d[4] for d in days); cur, best = streaks(days)
-    sy = 248; x = gx
-    for val, lab in [(f"{total:,}", "CONTRIBUTIONS"), (str(cur), "CURRENT STREAK"), (str(best), "LONGEST STREAK")]:
-        w = t(val, "Rajdhani-Bold.ttf", 30, x, sy, RED, tr=1)
-        w2 = t(lab, "ShareTechMono-Regular.ttf", 15, x + w + 10, sy - 3, CY, .9)
-        x += w + 10 + w2 + 60
-    lx = gx + ncol * (cs + gap) - gap - 5 * 18 - 70
-    t("LESS", "ShareTechMono-Regular.ttf", 13, lx, sy - 4, RED, .7)
-    for i, c in enumerate(LEVELS):
-        a(f'<rect x="{lx + 42 + i*18:.1f}" y="{sy - 15}" width="13" height="13" fill="{c}"/>')
-    t("MORE", "ShareTechMono-Regular.ttf", 13, lx + 42 + 5*18 + 4, sy - 4, RED, .7)
-    span = (ncol - 1) * (cs + gap)
-    css = (f".sweep{{animation:sw 12s linear infinite}}@keyframes sw{{0%{{transform:translateX(0);opacity:0}}3%{{opacity:.18}}"
-           f"97%{{opacity:.18}}100%{{transform:translateX({span:.0f}px);opacity:0}}}}"
-           "@media (prefers-reduced-motion:reduce){.sweep{animation:none;opacity:0}}")
+def build(repos, now):
+    W, H = 1200, 366
+    o = []; a = o.append
+    a(f'<path d="M22 32H1178" stroke="{LINE}" stroke-width="1.5"/>')
+    a(f'<path d="M40 32V6H246l12 12V32" fill="#0E2A30" fill-opacity=".6" stroke="{CY}" stroke-width="1.5"/>')
+    a(text("RECENTLY UPDATED", S, 20, 56, 26, CY, tr=1.5))
+    a(text("UPDATED DAILY", MO, 15, 1178 - width("UPDATED DAILY", MO, 15), 25, RED, .8))
+    x0, y0, rw, rh, step = 40, 52, 1120, 64, 78
+    for i, r in enumerate(repos):
+        y = y0 + i * step; hot = i == 0
+        box = f"M{x0} {y}H{x0+rw}V{y+rh-10}l-10 10H{x0}z"
+        if hot: a(f'<path d="{box}" fill="#0E2A30" fill-opacity=".85" stroke="{CY}" stroke-width="1.6"/><rect x="{x0}" y="{y}" width="4" height="{rh}" fill="{CY}"/>')
+        else: a(f'<path d="{box}" fill="{SLOT}" stroke="{LINE}" stroke-opacity=".5" stroke-width="1.2"/><rect x="{x0}" y="{y}" width="4" height="{rh}" fill="{DIM}"/>')
+        a(text(fit(r["name"], S, 23, 820), S, 23, x0 + 20, y + 28, CY if hot else RED, tr=.5))
+        a(text(fit(r.get("description") or "", MD, 18, 820), MD, 18, x0 + 20, y + 52, RED, .88))
+        lang = (r.get("language") or "-").upper()
+        a(f'<rect x="{x0 + 880}" y="{y + 27}" width="9" height="9" fill="{CY}" opacity=".85"/>')
+        a(text(lang, MO, 15, x0 + 896, y + 37, CY, .9))
+        when = ago(r["pushed_at"], now)
+        a(text(when, MO, 15, x0 + rw - 24 - width(when, MO, 15), y + 37, CY if hot else RED, .9))
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}">'
-            f'<style>{css}</style><rect width="{W}" height="{H}" fill="{BG}"/>' + "".join(out) + "</svg>")
+            f'<rect width="{W}" height="{H}" fill="{BG}"/>' + "".join(o) + "</svg>")
 
 if __name__ == "__main__":
-    open("activity.svg", "w").write(build(fetch()))
+    now = datetime.datetime.now(datetime.timezone.utc)
+    open("activity.svg", "w").write(build(fetch(), now))
