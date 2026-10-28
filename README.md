@@ -1,6 +1,6 @@
 # Hi, I'm Edgar 👋
 
-<img align="right" width="300" src="./retro-computer.jpg" alt="Pixel art retro computer loading on a desk with a cup of coffee">
+<img align="right" width="300" src="./WhatsApp%20Image%202026-10-28%20at%2015.37.21.jpeg" alt="Pixel art retro computer loading on a desk with a cup of coffee">
 
 **DevOps / SRE Consultant** based in Spain 🇪🇸
 I design, automate and keep cloud infrastructure running on Google Cloud, so teams can ship without worrying about what's underneath.
